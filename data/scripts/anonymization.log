@@ -1,0 +1,321 @@
+
+  ___  ____  ____  ____  ____ (R)
+ /__    /   ____/   /   ____/
+___/   /   /___/   /   /___/   14.2   Copyright 1985-2015 StataCorp LLC
+  Statistics/Data Analysis            StataCorp
+                                      4905 Lakeway Drive
+                                      College Station, Texas 77845 USA
+                                      800-STATA-PC        http://www.stata.com
+                                      979-696-4600        stata@stata.com
+                                      979-696-4601 (fax)
+
+9-user Stata network perpetual license:
+       Serial number:  301406212896
+         Licensed to:  Erik Ø. Sørensen
+                       Norwegian School of Economics
+
+Notes:
+      1.  Stata is running in batch mode.
+      2.  Unicode is supported; see help unicode_advice.
+
+. do anonymization.do 
+
+. 
+. /*
+> 
+>         In order to protect against backward identification, we should censor
+>  the age 
+>         information, since this information is detailed in terms of year, and
+>  the groups
+>         are singular for some older students. 
+>         
+>         We want to bin age into groups and replace the actual age by group av
+> erages.
+> 
+>         To evaluate whether the anonymization changes the meaning of the data
+> set, we
+>         run and compare the regressions in Table 2 - Treatment effects with b
+> ackground
+>         variables and compare the pre-anonymization to the binned results.
+> 
+> */
+. 
+. 
+. // First we need to read data and prepare for the regression:
+. use ../processed/mmwinner_secure, clear
+
+. 
+. gen shareY = 1-shareX    // Reformulate in terms of share to winner.
+
+. recode T (1 = 3) (2 = 1) (3 = 4) (4 = 2) , generate(treatment)
+(349 differences between T and treatment)
+
+. label define treatment 1 "WTA" 3 "WTA-No Choice" 4 "WTA-No Exp." 2 "Base"
+
+. label value treatment treatment 
+
+. gen WTA = treatment==1
+
+. gen WTA_no_choice = treatment==3
+
+. gen WTA_no_exp = treatment==4
+
+. gen byte female = (sex==2)
+
+. tabstat age, by(treatment)
+
+Summary for variables: age
+     by categories of: treatment (RECODE of T (Treatment))
+
+    treatment |      mean
+--------------+----------
+          WTA |     22.42
+         Base |     21.68
+WTA-No Choice |     22.05
+  WTA-No Exp. |  21.67677
+--------------+----------
+        Total |  21.99713
+-------------------------
+
+. gen c_right_wing = inlist(political,4,5)
+
+. gen byte all_to_Y = (shareY==1)
+
+. encode sessionid, gen(sessionidn)
+
+. 
+. // Cutting age into 6 groups, which means that only the lowest group and the 
+> highest group
+. // represents more than one unique age.
+. egen age_c6 = cut(age), group(6)
+
+. bys age_c6: egen age_a = mean(age)
+
+. // New censored age distribution:
+. tab age_a
+
+      age_a |      Freq.     Percent        Cum.
+------------+-----------------------------------
+   18.93939 |         33        9.46        9.46
+         20 |         61       17.48       26.93
+         21 |         70       20.06       46.99
+         22 |         61       17.48       64.47
+         23 |         52       14.90       79.37
+   25.33333 |         72       20.63      100.00
+------------+-----------------------------------
+      Total |        349      100.00
+
+. 
+. // Dropping situations without a loser:
+. drop if e1!=0
+(41 observations deleted)
+
+. 
+. 
+. // Original regressions
+. reg shareY WTA WTA_no_choice WTA_no_exp age female c_right_wing i.sessionidn,
+>  robust
+
+Linear regression                               Number of obs     =        308
+                                                F(10, 297)        =       7.08
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1770
+                                                Root MSE          =     .19352
+
+------------------------------------------------------------------------------
+             |               Robust
+      shareY |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         WTA |   .2742741    .037176     7.38   0.000     .2011123     .347436
+WTA_no_cho~e |   .2223277   .0357285     6.22   0.000     .1520146    .2926408
+  WTA_no_exp |   .1704282   .0361062     4.72   0.000     .0993718    .2414847
+         age |   .0017734   .0044515     0.40   0.691     -.006987    .0105339
+      female |  -.0187815   .0227914    -0.82   0.411    -.0636346    .0260716
+c_right_wing |   .0083942    .022937     0.37   0.715    -.0367455     .053534
+             |
+  sessionidn |
+      EXNFO  |  -.0223469   .0378557    -0.59   0.555    -.0968462    .0521524
+      JMTHA  |  -.0184712   .0368631    -0.50   0.617    -.0910171    .0540748
+      LMDOH  |  -.0394733   .0355008    -1.11   0.267    -.1093382    .0303917
+      YGNEO  |  -.0022297   .0348549    -0.06   0.949    -.0708235    .0663642
+             |
+       _cons |   .5656181   .1074178     5.27   0.000     .3542217    .7770145
+------------------------------------------------------------------------------
+
+. est store share_orig
+
+. reg all_to_Y WTA WTA_no_choice WTA_no_exp age female c_right_wing i.sessionid
+> n , robust
+
+Linear regression                               Number of obs     =        308
+                                                F(10, 297)        =       4.98
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1073
+                                                Root MSE          =     .47306
+
+------------------------------------------------------------------------------
+             |               Robust
+    all_to_Y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         WTA |   .4668586   .0750798     6.22   0.000     .3191027    .6146145
+WTA_no_cho~e |    .365461   .0739985     4.94   0.000     .2198332    .5110889
+  WTA_no_exp |   .2155165   .0735173     2.93   0.004     .0708357    .3601973
+         age |   .0061198   .0110731     0.55   0.581    -.0156718    .0279115
+      female |  -.0334542   .0572439    -0.58   0.559    -.1461093     .079201
+c_right_wing |   .0277064   .0570534     0.49   0.628    -.0845738    .1399866
+             |
+  sessionidn |
+      EXNFO  |  -.0308225   .0890151    -0.35   0.729    -.2060029    .1443578
+      JMTHA  |  -.0186142   .0893801    -0.21   0.835    -.1945128    .1572845
+      LMDOH  |  -.0880722   .0873324    -1.01   0.314    -.2599408    .0837965
+      YGNEO  |  -.0113567   .0887169    -0.13   0.898    -.1859501    .1632368
+             |
+       _cons |    .003838   .2676008     0.01   0.989     -.522796     .530472
+------------------------------------------------------------------------------
+
+. est store all_orig
+
+. 
+. 
+. 
+. 
+. // Running the regressions on anonymized data:
+. // replace age 
+. replace age = age_a
+variable age was byte now float
+(96 real changes made)
+
+. 
+. reg shareY WTA WTA_no_choice WTA_no_exp age female c_right_wing i.sessionidn,
+>  robust
+
+Linear regression                               Number of obs     =        308
+                                                F(10, 297)        =       7.10
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1766
+                                                Root MSE          =     .19356
+
+------------------------------------------------------------------------------
+             |               Robust
+      shareY |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         WTA |   .2753404   .0370445     7.43   0.000     .2024374    .3482433
+WTA_no_cho~e |   .2225167    .035598     6.25   0.000     .1524603     .292573
+  WTA_no_exp |    .170289   .0359978     4.73   0.000     .0994458    .2411321
+         age |   .0005073   .0053807     0.09   0.925    -.0100818    .0110965
+      female |  -.0189608   .0228091    -0.83   0.406    -.0638488    .0259271
+c_right_wing |   .0075636   .0229725     0.33   0.742    -.0376459    .0527731
+             |
+  sessionidn |
+      EXNFO  |  -.0231282   .0377395    -0.61   0.540    -.0973988    .0511425
+      JMTHA  |  -.0189572   .0367943    -0.52   0.607    -.0913678    .0534533
+      LMDOH  |  -.0413445   .0356795    -1.16   0.247    -.1115612    .0288722
+      YGNEO  |  -.0027468   .0350011    -0.08   0.938    -.0716284    .0661348
+             |
+       _cons |   .5944762    .127304     4.67   0.000      .343944    .8450083
+------------------------------------------------------------------------------
+
+. est store share_a
+
+. reg all_to_Y WTA WTA_no_choice WTA_no_exp age female c_right_wing i.sessionid
+> n , robust
+
+Linear regression                               Number of obs     =        308
+                                                F(10, 297)        =       5.03
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.1065
+                                                Root MSE          =     .47327
+
+------------------------------------------------------------------------------
+             |               Robust
+    all_to_Y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         WTA |   .4719778    .074638     6.32   0.000     .3250914    .6188642
+WTA_no_cho~e |   .3670785   .0736904     4.98   0.000     .2220569       .5121
+  WTA_no_exp |     .21555   .0731301     2.95   0.003     .0716311    .3594688
+         age |  -.0006614   .0132475    -0.05   0.960    -.0267323    .0254094
+      female |  -.0346326   .0571926    -0.61   0.545    -.1471868    .0779216
+c_right_wing |   .0241049   .0569911     0.42   0.673    -.0880527    .1362625
+             |
+  sessionidn |
+      EXNFO  |  -.0349256   .0886558    -0.39   0.694    -.2093988    .1395476
+      JMTHA  |  -.0215038   .0892495    -0.24   0.810    -.1971454    .1541378
+      LMDOH  |  -.0987416   .0884034    -1.12   0.265    -.2727181    .0752348
+      YGNEO  |  -.0158424   .0894873    -0.18   0.860     -.191952    .1602672
+             |
+       _cons |   .1582183   .3129728     0.51   0.614     -.457707    .7741436
+------------------------------------------------------------------------------
+
+. est store all_a
+
+. 
+. // Output of regressions: Columns can be compared for effect of censoring age
+> .
+. esttab share_orig share_a all_orig all_a, b(3) se(3) ar2 keep(WTA* age* c_rig
+> ht_wing) star(* 0.1 ** 0.05 *** 0.01)
+
+----------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)   
+                   shareY          shareY        all_to_Y        all_to_Y   
+----------------------------------------------------------------------------
+WTA                 0.274***        0.275***        0.467***        0.472***
+                  (0.037)         (0.037)         (0.075)         (0.075)   
+
+WTA_no_cho~e        0.222***        0.223***        0.365***        0.367***
+                  (0.036)         (0.036)         (0.074)         (0.074)   
+
+WTA_no_exp          0.170***        0.170***        0.216***        0.216***
+                  (0.036)         (0.036)         (0.074)         (0.073)   
+
+age                 0.002           0.001           0.006          -0.001   
+                  (0.004)         (0.005)         (0.011)         (0.013)   
+
+c_right_wing        0.008           0.008           0.028           0.024   
+                  (0.023)         (0.023)         (0.057)         (0.057)   
+----------------------------------------------------------------------------
+N                     308             308             308             308   
+adj. R-sq           0.149           0.149           0.077           0.076   
+----------------------------------------------------------------------------
+Standard errors in parentheses
+* p<0.1, ** p<0.05, *** p<0.01
+
+. 
+. esttab share_orig share_a all_orig all_a using anonymization.tex, b(3) se(3) 
+> ar2 keep(WTA* age* c_right_wing) star(* 0.1 ** 0.05 *** 0.01) booktabs replac
+> e
+(output written to anonymization.tex)
+
+. clear
+
+. 
+. /*
+>         Instead of removing all remnants, of past data definitions, I start w
+> ith new data
+> */
+. use ../processed/mmwinner_secure, clear
+
+. egen age_c6 = cut(age), group(6)
+
+. bys age_c6: egen age_a = mean(age)
+
+. replace age = age_a
+variable age was byte now float
+(105 real changes made)
+
+. drop age_c6 age_a
+
+. saveold ../mmwinner, replace
+(saving in Stata 13 format)
+(FYI, saveold has options version(12) and version(11) that write files in
+      older Stata formats)
+file ../mmwinner.dta saved
+
+. outsheet using ../mmwinner.csv, comma nolabel replace
+
+. 
+. 
+. 
+. 
+. 
+. 
+end of do-file
