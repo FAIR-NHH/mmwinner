@@ -1,15 +1,13 @@
 ---
 title: "Power analysis for replication"
 author: "Erik"
-date: "July 20, 2018"
-output: html_document
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output: github_document
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(multcomp)
 library(tidyverse)
-library(latex2exp)    # Annotate plots with LaTeX
-library(cowplot)      # Arranging plots in a grid
 library(stargazer)    # Formatting regression tables
 library(multiwayvcov) # Robust covariance matrix
 ```
