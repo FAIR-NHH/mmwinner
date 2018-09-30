@@ -6,6 +6,10 @@ Markets](https://swopec.hhs.se/nhheco/abs/nhheco2018_008.htm) authored
 by Björn Bartling, Alexander W. Cappelen, Mathias Ekström, Erik
 Ø. Sørensen and Bertil Tungodden.
 
+## Looking at output
+Browsing on github, it should be possible to click on the ".md" files
+to look at rendered versions of the calculated results.
+
 ## Abstract
 
 The paper reports the first experimental study on people’s fairness
